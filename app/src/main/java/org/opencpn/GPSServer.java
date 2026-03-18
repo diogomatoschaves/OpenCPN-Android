@@ -32,8 +32,6 @@ import android.os.Handler;
 
 import androidx.core.app.NotificationCompat;
 
-import com.google.android.gms.location.sample.locationupdatesforegroundservice.LocationUpdatesService;
-
 import java.lang.reflect.Method;
 import java.util.List;
 import java.lang.Math;

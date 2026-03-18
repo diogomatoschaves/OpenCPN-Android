@@ -1,7 +1,5 @@
 plugins {
     id 'com.android.application'
-    id 'com.google.firebase.crashlytics'
-    id 'com.google.gms.google-services'
 }
 
 
@@ -90,8 +88,7 @@ dependencies {
     implementation project(path: ':materialfilemanager')
 
     //implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'com.google.android.gms:play-services-maps:18.1.0'
-    implementation 'com.google.android.gms:play-services-location:21.0.1'
+    // Google Play Services removed for GMS-free deployment
     implementation 'com.caverock:androidsvg-aar:1.4'
     implementation fileTree(dir: "$buildDir/native-libs", include: 'native-libs.jar')
     implementation 'org.apache.commons:commons-compress:1.20'
@@ -105,11 +102,7 @@ dependencies {
         exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
     }
 
-    // Import the BoM for the Firebase platform
-    implementation(platform("com.google.firebase:firebase-bom:32.1.1"))
-    implementation 'com.google.firebase:firebase-analytics'
-    implementation 'com.google.firebase:firebase-crashlytics'
-    implementation 'com.google.firebase:firebase-crashlytics-ndk'
+    // Firebase removed for GMS-free deployment
 
     def Qt_Base = "/home/dsr/Projects/opencpn/cache/OCPNAndroidCommon-master/qt5"
     def Qt_Build = "build_arm32_19_O3"
@@ -608,86 +601,8 @@ dependencies {
         rename ('libstatusbar_pi.so', 'libstatusbar_pi.so32')
     }
 
-    gradle.projectsEvaluated {
-        preBuild.dependsOn(copyENCSupportFiles)
-        preBuild.dependsOn(copyGSHHSFiles)
-        preBuild.dependsOn(copyShapefiles)
-        preBuild.dependsOn(copyLocaleFiles)
-        preBuild.dependsOn(copySoundFiles)
-        preBuild.dependsOn(copyStyleFiles)
-        preBuild.dependsOn(copyTCFiles)
-        preBuild.dependsOn(copyUIFiles)
-        preBuild.dependsOn(copyLicenseFiles)
-        preBuild.dependsOn(copyPluginFiles)
-        preBuild.dependsOn(copySVGTraditionalFiles)
-        preBuild.dependsOn(copySVGMarkFiles)
-        preBuild.dependsOn(copySVGMUIFiles)
-        preBuild.dependsOn(copyDataMonitorFilters)
-
-        preBuild.dependsOn(copyLocalefrFiles)
-        preBuild.dependsOn(copyLocaleesFiles)
-        preBuild.dependsOn(copyLocaledeFiles)
-        preBuild.dependsOn(copyLocalesvFiles)
-        preBuild.dependsOn(copyLocalenbNOFiles)
-        preBuild.dependsOn(copyLocalefiFIFiles)
-        preBuild.dependsOn(copyLocaleitFiles)
-
-        preBuild.dependsOn(copyWMM_PIFiles)
-        preBuild.dependsOn(copyDNLDR_PIFiles)
-        preBuild.dependsOn(copyGRIB_PIFiles)
-        preBuild.dependsOn(copyDASHBOARD_PIFiles)
-        //preBuild.dependsOn(copySQUIDDIO_PIFiles)
-
-        preBuild.dependsOn(copyWMM_PIFiles64)
-        preBuild.dependsOn(copyDNLDR_PIFiles64)
-        preBuild.dependsOn(copyGRIB_PIFiles64)
-        preBuild.dependsOn(copyDASHBOARD_PIFiles64)
-        //preBuild.dependsOn(copySQUIDDIO_PIFiles64)
-
-        preBuild.dependsOn(copyWMM_PIDataFiles)
-        preBuild.dependsOn(copyDNLDR_PIDataFiles)
-        preBuild.dependsOn(copyGRIB_PIDataFiles)
-        preBuild.dependsOn(copyDASHBOARD_PIDataFiles)
-        //preBuild.dependsOn(copySQUIDDIO_PIDataFiles)
-
-        preBuild.dependsOn(copyQTJars)
-
-        //preBuild.dependsOn(copyQTPlugins_armeabi_v7a)
-        //preBuild.dependsOn(copyQTPlugins_arm64_v8a)
-
-        preBuild.dependsOn(copyQTLibs_armeabi_v7a)
-        preBuild.dependsOn(copyQTLibs_arm64_v8a)
-        //preBuild.dependsOn(copyQTLibs_x86)
-
-        preBuild.dependsOn(copyOCPN_CORE)
-        preBuild.dependsOn(copyOCPN_CORE_64)
-        //preBuild.dependsOn(copyOCPN_CORE_x86)
-
-        //preBuild.dependsOn(copyDRAW_PIFiles)
-        //preBuild.dependsOn(copyDRAW_PIDataFiles)
-        //preBuild.dependsOn(copyDRAW_PIDataIconsFiles)
-
-        //preBuild.dependsOn(copyOESENC_PIFiles)
-        //preBuild.dependsOn(copyOESENC_PIFiles64)
-
-        //preBuild.dependsOn(copyOCHARTS_PIFiles)
-
-        //preBuild.dependsOn(copyCELESTIAL_PIFiles)
-
-        preBuild.dependsOn(copySERVERFiles32)
-        preBuild.dependsOn(copySERVERFiles64)
-
-        //preBuild.dependsOn(copyVDR_PIFiles64)
-
-        //preBuild.dependsOn(copyWarchdog_PIFiles64)
-        //preBuild.dependsOn(copyPYPILOT_PIFiles32)
-
-        //preBuild.dependsOn(copyTEST_PIFiles32)
-        //preBuild.dependsOn(copyTEST_PIDataFiles)
-
-        //preBuild.dependsOn(copySB_PIFiles32)
-        //preBuild.dependsOn(copySB_PIDataFiles)
-
-        }
+    // preBuild copy tasks disabled — assets and native libs are pre-committed to the repo.
+    // To refresh from a local OpenCPN C++ build, uncomment the tasks above and run them manually.
+    // gradle.projectsEvaluated { ... }
 
 }

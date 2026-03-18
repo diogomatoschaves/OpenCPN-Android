@@ -318,9 +318,7 @@ import org.opencpn.UnzipService;
 import com.caverock.androidsvg.SVG;
 import com.github.anrwatchdog.ANRError;
 import com.github.anrwatchdog.ANRWatchDog;
-//import com.google.android.gms.common.util.IOUtils;
-import com.google.android.gms.location.sample.locationupdatesforegroundservice.LocationUpdatesService;
-import com.google.firebase.analytics.FirebaseAnalytics;
+// Google dependencies removed for GMS-free deployment
 
 import android.graphics.Bitmap;
 
@@ -639,7 +637,7 @@ public class QtActivity extends AppCompatActivity  implements Receiver{
     private DocumentFile m_FileToDelete;
     private DocumentFile m_documentFile;
 
-    private FirebaseAnalytics mFirebaseAnalytics;
+    // FirebaseAnalytics removed for GMS-free deployment
 
     /**
      * Defines callbacks for service binding, passed to bindService()
@@ -6842,8 +6840,7 @@ public void onCreate(Bundle savedInstanceState) {
             Log.i("OpenCPN", "Exception on getApplicationInfo");
         }
 
-        // Obtain the FirebaseAnalytics instance.
-        mFirebaseAnalytics = FirebaseAnalytics.getInstance(this);
+        // FirebaseAnalytics removed for GMS-free deployment
         
         //Toast.makeText(getApplicationContext(), "onCreate",Toast.LENGTH_LONG).show();
 
@@ -8679,7 +8676,7 @@ public void onCreate(Bundle savedInstanceState) {
                 Log.i("OpenCPN", "BACKGROUND");
 
 
-            Location location = intent.getParcelableExtra(LocationUpdatesService.EXTRA_LOCATION);
+            Location location = intent.getParcelableExtra("com.google.android.gms.location.sample.locationupdatesforegroundservice.location");
             if (location != null) {
                 String msg = GPSServer.createRMC(location);
                 //Log.i("OpenCPN", String.valueOf(ncb) + " " + msg);
