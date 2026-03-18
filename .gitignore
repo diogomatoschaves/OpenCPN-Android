@@ -89,5 +89,5 @@ lint/tmp/
 # lint/reports/
 
 #Private for OCPN
-
-app/src/main/assets/files/*
+# Assets are committed directly in this fork (extracted from macOS build)
+# app/src/main/assets/files/*
