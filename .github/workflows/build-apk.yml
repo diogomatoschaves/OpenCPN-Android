@@ -38,13 +38,14 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           echo "$KEYSTORE_BASE64" | base64 -d > keystore.jks
+          UNSIGNED_APK=$(find app/build/outputs/apk/release -name '*.apk' | head -1)
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" sign \
             --ks keystore.jks \
             --ks-pass "pass:$KEYSTORE_PASSWORD" \
             --ks-key-alias "$KEY_ALIAS" \
             --key-pass "pass:$KEY_PASSWORD" \
             --out opencpn-pelorusfleet.apk \
-            app/build/outputs/apk/release/app-release-unsigned.apk
+            "$UNSIGNED_APK"
           rm keystore.jks
 
       - name: Upload unsigned APK
@@ -54,7 +55,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: opencpn-unsigned
-          path: app/build/outputs/apk/release/app-release-unsigned.apk
+          path: app/build/outputs/apk/release/*.apk
 
       - name: Upload signed APK
         if: github.event_name != 'pull_request' && env.KEYSTORE_BASE64 != ''
