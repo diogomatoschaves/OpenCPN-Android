@@ -26,7 +26,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TMP_DIR=$(mktemp -d)
 
 echo "Extracting APK to $TMP_DIR..."
-unzip -q "$APK_PATH" -d "$TMP_DIR"
+unzip -qo "$APK_PATH" -d "$TMP_DIR"
 
 # 1. Extract native libraries (jniLibs)
 echo ""
