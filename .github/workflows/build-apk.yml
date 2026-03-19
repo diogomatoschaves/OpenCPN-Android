@@ -30,7 +30,7 @@ jobs:
         run: ./gradlew assembleRelease
 
       - name: Sign APK
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && env.KEYSTORE_BASE64 != ''
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -47,15 +47,19 @@ jobs:
             app/build/outputs/apk/release/app-release-unsigned.apk
           rm keystore.jks
 
-      - name: Upload unsigned APK (PR builds)
-        if: github.event_name == 'pull_request'
+      - name: Upload unsigned APK
+        if: env.KEYSTORE_BASE64 == '' || github.event_name == 'pull_request'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         uses: actions/upload-artifact@v4
         with:
           name: opencpn-unsigned
           path: app/build/outputs/apk/release/app-release-unsigned.apk
 
       - name: Upload signed APK
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && env.KEYSTORE_BASE64 != ''
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         uses: actions/upload-artifact@v4
         with:
           name: opencpn-pelorusfleet
