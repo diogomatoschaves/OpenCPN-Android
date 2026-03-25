@@ -7194,28 +7194,41 @@ public void onCreate(Bundle savedInstanceState) {
                 Assetbridge.unpackNoDoc(this, dirFiles);
                 Log.i("OpenCPN", "asset bridge finish unpack");
 
-                // Extract bundled CM93 Mediterranean charts from assets/charts/
-                try {
-                    String chartDestDir = dirFiles + "/Charts/CM93";
-                    File chartMarker = new File(chartDestDir, ".charts_extracted");
-                    if (!chartMarker.exists()) {
-                        Log.i("OpenCPN", "Extracting bundled CM93 Mediterranean charts...");
-                        AssetManager am = getAssets();
-                        String[] chartAssets = am.list("charts/CM93");
-                        if (chartAssets != null && chartAssets.length > 0) {
-                            new File(chartDestDir).mkdirs();
-                            for (String asset : chartAssets) {
-                                Assetbridge.copyAssetItem(am, "charts/CM93/" + asset, chartDestDir + "/" + asset);
-                            }
-                            chartMarker.createNewFile();
-                            Log.i("OpenCPN", "CM93 chart extraction complete: " + chartDestDir);
+            }
+
+            // Extract bundled CM93 Mediterranean charts from assets/charts/
+            // This runs independently of b_needcopy — uses its own marker file
+            try {
+                String chartDestDir = m_filesDir + "/Charts/CM93";
+                File chartMarker = new File(chartDestDir, ".charts_extracted");
+                if (!chartMarker.exists()) {
+                    Log.i("OpenCPN", "Extracting bundled CM93 Mediterranean charts...");
+                    AssetManager am = getAssets();
+                    String[] chartAssets = am.list("charts/CM93");
+                    if (chartAssets != null && chartAssets.length > 0) {
+                        new File(chartDestDir).mkdirs();
+                        for (String asset : chartAssets) {
+                            Assetbridge.copyAssetItem(am, "charts/CM93/" + asset, chartDestDir + "/" + asset);
                         }
-                    } else {
-                        Log.i("OpenCPN", "CM93 charts already extracted, skipping");
+                        chartMarker.createNewFile();
+                        Log.i("OpenCPN", "CM93 chart extraction complete: " + chartDestDir);
                     }
-                } catch (Exception e) {
-                    Log.e("OpenCPN", "CM93 chart extraction failed", e);
+                } else {
+                    Log.i("OpenCPN", "CM93 charts already extracted, skipping");
                 }
+
+                // Auto-register chart directory in OpenCPN preferences
+                if (chartMarker.exists()) {
+                    SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+                    String existingDirs = prefs.getString("chartDirs", "");
+                    if (!existingDirs.contains(chartDestDir)) {
+                        String newDirs = existingDirs.isEmpty() ? chartDestDir + ";" : existingDirs + chartDestDir + ";";
+                        prefs.edit().putString("chartDirs", newDirs).apply();
+                        Log.i("OpenCPN", "Registered CM93 chart directory in preferences: " + chartDestDir);
+                    }
+                }
+            } catch (Exception e) {
+                Log.e("OpenCPN", "CM93 chart extraction failed", e);
             }
 
 
