@@ -28,6 +28,11 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      - name: Set version
+        run: |
+          echo "VERSION_NAME=1.${{ github.run_number }}.0" >> $GITHUB_ENV
+          echo "VERSION_CODE=$((1000 + ${{ github.run_number }}))" >> $GITHUB_ENV
+
       - name: Build Release APK
         run: ./gradlew assembleRelease
 
@@ -153,6 +158,7 @@ jobs:
           echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Package | \`org.opencpn.opencpn\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | \`${{ env.VERSION_NAME }}\` (code \`${{ env.VERSION_CODE }}\`) |" >> $GITHUB_STEP_SUMMARY
           echo "| Charts | Mediterranean CM93 (2015) |" >> $GITHUB_STEP_SUMMARY
           if [ -f opencpn-pelorusfleet.apk ]; then
             echo "| APK Size | $(du -h opencpn-pelorusfleet.apk | cut -f1) |" >> $GITHUB_STEP_SUMMARY
