@@ -7193,6 +7193,29 @@ public void onCreate(Bundle savedInstanceState) {
                 Log.i("OpenCPN", "asset bridge start unpack");
                 Assetbridge.unpackNoDoc(this, dirFiles);
                 Log.i("OpenCPN", "asset bridge finish unpack");
+
+                // Extract bundled CM93 Mediterranean charts from assets/charts/
+                try {
+                    String chartDestDir = dirFiles + "/Charts/CM93";
+                    File chartMarker = new File(chartDestDir, ".charts_extracted");
+                    if (!chartMarker.exists()) {
+                        Log.i("OpenCPN", "Extracting bundled CM93 Mediterranean charts...");
+                        AssetManager am = getAssets();
+                        String[] chartAssets = am.list("charts/CM93");
+                        if (chartAssets != null && chartAssets.length > 0) {
+                            new File(chartDestDir).mkdirs();
+                            for (String asset : chartAssets) {
+                                Assetbridge.copyAssetItem(am, "charts/CM93/" + asset, chartDestDir + "/" + asset);
+                            }
+                            chartMarker.createNewFile();
+                            Log.i("OpenCPN", "CM93 chart extraction complete: " + chartDestDir);
+                        }
+                    } else {
+                        Log.i("OpenCPN", "CM93 charts already extracted, skipping");
+                    }
+                } catch (Exception e) {
+                    Log.e("OpenCPN", "CM93 chart extraction failed", e);
+                }
             }
 
 
