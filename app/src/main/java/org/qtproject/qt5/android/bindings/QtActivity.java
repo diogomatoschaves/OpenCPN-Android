@@ -7217,14 +7217,33 @@ public void onCreate(Bundle savedInstanceState) {
                     Log.i("OpenCPN", "CM93 charts already extracted, skipping");
                 }
 
-                // Auto-register chart directory in OpenCPN preferences
+                // Auto-register chart directory in opencpn.conf
+                // Write directly to the native config file so charts load on first launch
                 if (chartMarker.exists()) {
-                    SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-                    String existingDirs = prefs.getString("chartDirs", "");
-                    if (!existingDirs.contains(chartDestDir)) {
-                        String newDirs = existingDirs.isEmpty() ? chartDestDir + ";" : existingDirs + chartDestDir + ";";
-                        prefs.edit().putString("chartDirs", newDirs).apply();
-                        Log.i("OpenCPN", "Registered CM93 chart directory in preferences: " + chartDestDir);
+                    String chartDir = m_filesDir + "/Charts/CM93";
+                    File confFile = new File(m_filesDir, "opencpn.conf");
+                    boolean needsChartDir = true;
+
+                    if (confFile.exists()) {
+                        String confContent = new String(java.nio.file.Files.readAllBytes(confFile.toPath()));
+                        if (confContent.contains(chartDir)) {
+                            needsChartDir = false;
+                        } else if (confContent.contains("[ChartDirectories]")) {
+                            // Insert our chart dir after the section header
+                            confContent = confContent.replace("[ChartDirectories]",
+                                "[ChartDirectories]\nChartDir1=" + chartDir);
+                            java.nio.file.Files.write(confFile.toPath(), confContent.getBytes());
+                            needsChartDir = false;
+                            Log.i("OpenCPN", "Added CM93 chart dir to existing opencpn.conf");
+                        }
+                    }
+
+                    if (needsChartDir) {
+                        // Conf doesn't exist yet or has no ChartDirectories section — append it
+                        java.io.FileWriter fw = new java.io.FileWriter(confFile, true);
+                        fw.write("\n[ChartDirectories]\nChartDir1=" + chartDir + "\n");
+                        fw.close();
+                        Log.i("OpenCPN", "Created ChartDirectories section in opencpn.conf: " + chartDir);
                     }
                 }
             } catch (Exception e) {
