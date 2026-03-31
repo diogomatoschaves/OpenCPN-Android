@@ -9,7 +9,7 @@ android {
     defaultConfig {
         applicationId "org.opencpn.opencpn"
         minSdkVersion 21
-        targetSdkVersion 36
+        targetSdkVersion 33
         // Version is set dynamically by CI via VERSION_CODE and VERSION_NAME env vars.
         // Defaults (for local builds): 1.0.0 / code 1000
         versionCode Integer.parseInt(System.getenv("VERSION_CODE") ?: "1000")
