@@ -58,6 +58,9 @@ public class GPSServer extends Service implements LocationListener {
 
     boolean isThreadStarted = false;
     HandlerThread mLocationHandlerThread;
+    HandlerThread mReqThread;
+    Handler mReqHandler;
+    Handler mTickerHandler;
 
     OCPNGpsNmeaListener mNMEAListener;
 
@@ -310,12 +313,19 @@ public class GPSServer extends Service implements LocationListener {
             case GPS_OFF:
             Log.i("OpenCPN", "GPS Service doService :GPS OFF");
 
+            // Cancel the keepalive ticker first, so it stops scheduling itself
+            if (mTickerHandler != null) {
+                mTickerHandler.removeCallbacksAndMessages(null);
+            }
+
             if(locationManager != null){
                 if(isThreadStarted){
                     locationManager.removeUpdates(GPSServer.this);
 
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {    // 24
-                        locationManager.removeNmeaListener(mNMEAMessageListener);
+                        if (mNMEAMessageListener != null) {
+                            locationManager.removeNmeaListener(mNMEAMessageListener);
+                        }
                     }
                     else{
                         try {
@@ -326,14 +336,19 @@ public class GPSServer extends Service implements LocationListener {
                         } catch (Exception exception) {
                             // TODO
                         }
-
-                        //locationManager.removeNmeaListener(mGPSNMEAListener);
                     }
 
                     isThreadStarted = false;
                 }
             }
             isGPSEnabled = false;
+
+            // Quit the request handler thread to release resources
+            if (mReqThread != null && mReqThread.isAlive()) {
+                mReqThread.quitSafely();
+                mReqThread = null;
+                mReqHandler = null;
+            }
 
             ret_string = "GPS_OFF OK";
             break;
@@ -354,125 +369,90 @@ public class GPSServer extends Service implements LocationListener {
                 }
 
                 if(!isThreadStarted){
-                    // Immediately send last known GPS location to seed the watchdog.
-                    // GPS cold start (acquiring satellites) can take 30-90 seconds, which is
-                    // longer than OpenCPN's 10-second watchdog. By sending the last known
-                    // location immediately, we keep the connection alive until a fresh fix arrives.
-                    try {
-                        Location lastKnown = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-                        if (lastKnown != null && mNativeLib != null) {
-                            Log.i("OpenCPN", "GPS Service: seeding watchdog with last known location");
-                            mlastNMEAMillis = 0; // force RMC synthesis (deltaTime > 2000)
-                            onLocationChanged(lastKnown);
-                        } else {
-                            Log.i("OpenCPN", "GPS Service: no last known location available");
-                        }
-                    } catch (SecurityException e) {
-                        Log.w("OpenCPN", "GPS Service: SecurityException getting last known location: " + e.getMessage());
-                    }
-
                     Log.i("OpenCPN", "GPS Service doService : Start Thread");
 
-                    HandlerThread hReqThread = new HandlerThread("RequestHandlerThread");
-                    hReqThread.start();
-                    final Handler reqHandler = new Handler(hReqThread.getLooper());
+                    // Reuse or create the request handler thread
+                    if (mReqThread == null || !mReqThread.isAlive()) {
+                        mReqThread = new HandlerThread("GPSRequestThread");
+                        mReqThread.start();
+                        mReqHandler = new Handler(mReqThread.getLooper());
+                    }
 
-                    Runnable Req =new Runnable()   {
-                                            LocationManager locationManager;
-                                            public void run()   {
+                    final Handler reqHandler = mReqHandler;
 
-                                                locationManager = (LocationManager) mContext.getSystemService(LOCATION_SERVICE);
-
-
-                                                // Changelog for Michel...
-                                                // {79} 1.  Add NMEAlistener before requesting updates.
-                                                //      2.  Set min-distance parameter to "0"
-
-                                                // {80} 1.  Diasble NMEAListener
-                                                //      2.  Implement LocationListener strategy with synthesized GPRMC
-
-                                                //mMyListener = new MyListener();
-                                                //locationManager.addGpsStatusListener(mMyListener);
+                    Runnable Req = new Runnable() {
+                                            public void run() {
+                                                LocationManager lm = (LocationManager) mContext.getSystemService(LOCATION_SERVICE);
 
                                                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {    // 24
                                                     mNMEAMessageListener = new MyNMEAMessageListener();
                                                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) { // 31
-                                                        locationManager.addNmeaListener(java.util.concurrent.Executors.newSingleThreadExecutor(), mNMEAMessageListener);
+                                                        lm.addNmeaListener(java.util.concurrent.Executors.newSingleThreadExecutor(), mNMEAMessageListener);
                                                         Log.i("OpenCPN", "GPS Service doService : adding MyNMEAMessageListener with Executor");
                                                     } else {
-                                                        locationManager.addNmeaListener(mNMEAMessageListener, reqHandler);
+                                                        lm.addNmeaListener(mNMEAMessageListener, reqHandler);
                                                         Log.i("OpenCPN", "GPS Service doService : adding MyNMEAMessageListener with Handler");
                                                     }
-
-                                                }
-                                                else {
+                                                } else {
                                                     mGPSNMEAListener = new MYGpsNmeaListener();
                                                     try {
                                                         //noinspection JavaReflectionMemberAccess
                                                         Method addNmeaListener =
                                                                 LocationManager.class.getMethod("addNmeaListener", GpsStatus.NmeaListener.class);
-                                                        addNmeaListener.invoke(locationManager, mGPSNMEAListener);
+                                                        addNmeaListener.invoke(lm, mGPSNMEAListener);
                                                     } catch (Exception exception) {
                                                         // TODO
                                                     }
-
-                                                    //locationManager.addNmeaListener(mGPSNMEAListener);
                                                 }
 
                                                 Log.i("OpenCPN", "GPS Service doService : Requesting Location Updates");
-                                                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,1000,0, GPSServer.this);
-
-
+                                                lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, GPSServer.this);
                                             }};
 
-                    // Schedule the first execution
-                    reqHandler.postDelayed(Req, 100);
+                    // Schedule listener registration with short delay
+                    mReqHandler.postDelayed(Req, 100);
 
+                    // Start the keepalive ticker.
+                    // GPS satellite acquisition (cold start) takes 30-90s, longer than OpenCPN's
+                    // 10-second watchdog. Without NMEA data the watchdog fires and shows '!'.
+                    // The ticker sends a synthetic GPRMC from the last known location whenever
+                    // real NMEA has been silent for > 5 seconds, keeping the connection alive
+                    // through initial acquisition and brief signal losses (e.g. under a bridge).
+                    //
+                    // When real NMEA arrives, the NMEA listener updates mlastNMEAMillis,
+                    // so silenceMs < 5000 and no synthetic position is sent.
+                    mlastNMEAMillis = 0; // treat as silent immediately so first tick fires
 
-/*
-                    HandlerThread hThread = new HandlerThread("HandlerThread");
-                    hThread.start();
-                    final Handler handler = new Handler(hThread.getLooper());
-
+                    HandlerThread tickerThread = new HandlerThread("GPSKeepalive");
+                    tickerThread.start();
+                    mTickerHandler = new Handler(tickerThread.getLooper());
 
                     Runnable ticker = new Runnable() {
                         @Override
                         public void run() {
+                            if (!isThreadStarted) return; // GPS_OFF called; stop ticking
 
-                            if(isGPSEnabled){
-//                                Log.i("OpenCPN", "Tick " + m_watchDog + " " + isGPSEnabled + " " + isGPSFix);
-
-                                m_tick++;
-                                m_watchDog++;
-
-                                if(m_watchDog > 10){
-                                    if(null != locationManager){
-                                        mLastLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-                                        if (mLastLocation != null) {
-                                            latitude = mLastLocation.getLatitude();
-                                            longitude = mLastLocation.getLongitude();
-                                            course = 0; //mLastLocation.getBearing();
-                                            speed = 0; //mLastLocation.getSpeed();
-                                        }
-
-                                        if(null != mNativeLib){
-                                            String s = createRMC();
-                                            Log.i("OpenCPN", "ticker: " + s);
-                                            mNativeLib.processNMEAInt( s );
-                                        }
+                            long silenceMs = SystemClock.elapsedRealtime() - mlastNMEAMillis;
+                            if (silenceMs > 5000) {
+                                // NMEA has been silent — send synthetic position to prevent watchdog
+                                try {
+                                    Location last = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                                    if (last != null && mNativeLib != null) {
+                                        Log.i("OpenCPN", "GPS keepalive: synthetic GPRMC (NMEA silent " + silenceMs/1000 + "s)");
+                                        mNativeLib.processNMEAInt(createRMC(last));
                                     }
-
+                                } catch (SecurityException e) {
+                                    Log.w("OpenCPN", "GPS keepalive: " + e.getMessage());
                                 }
-
                             }
 
-                            handler.postDelayed(this, 1000);
+                            if (mTickerHandler != null && isThreadStarted) {
+                                mTickerHandler.postDelayed(this, 3000);
                             }
-                        };
+                        }
+                    };
 
-                    // Schedule the first execution
-                    handler.postDelayed(ticker, 1000);
-*/
+                    mTickerHandler.post(ticker); // fire immediately for first tick
 
                     isThreadStarted = true;
                 }
