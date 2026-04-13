@@ -146,14 +146,8 @@ public class GPSServer extends Service implements LocationListener {
                     .setContentText("").build();
 
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    if (!isInBackground()) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // API 34
-                            startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
-                        } else {
-                            startForeground(1, notification);
-                        }
-                    }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // API 34
+                    startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
                 } else {
                     startForeground(1, notification);
                 }
@@ -163,7 +157,6 @@ public class GPSServer extends Service implements LocationListener {
                 ) {
                     Log.i("OpenCPN", "GPS Service Not Started from background");
                     Log.i("OpenCPN", "Try disable battery optimization");
-
                 }
             }
         }

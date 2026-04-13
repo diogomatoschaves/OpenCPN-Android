@@ -2898,7 +2898,11 @@ public class QtActivity extends AppCompatActivity  implements Receiver{
             if (!m_GPSServiceStarted) {
                 Log.i("OpenCPN", "Starting GPS Server");
                 Intent intent = new Intent(this, GPSServer.class);
-                startService(intent);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(intent);
+                } else {
+                    startService(intent);
+                }
                 m_gpsServerActionPending = true;
                 m_gpsServerPendingParm = parm;
                 getApplicationContext().bindService(intent, GPSconnection, Context.BIND_AUTO_CREATE);
@@ -2929,7 +2933,11 @@ public class QtActivity extends AppCompatActivity  implements Receiver{
                     if (!m_GPSServiceStarted) {
                         Log.i("OpenCPN", "Starting GPS Server in onRequestPermissionsResult");
                         Intent intent = new Intent(this, GPSServer.class);
-                        startService(intent);
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(intent);
+                        } else {
+                            startService(intent);
+                        }
                         m_gpsServerActionPending = true;
                         m_gpsServerPendingParm = GPSServer.GPS_ON;
                         getApplicationContext().bindService(intent, GPSconnection, Context.BIND_AUTO_CREATE);
