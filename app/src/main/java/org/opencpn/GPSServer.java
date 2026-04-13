@@ -353,15 +353,23 @@ public class GPSServer extends Service implements LocationListener {
                     return ret_string;
                 }
 
-/*
-                isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
-                if(isNetworkEnabled)
-                    Log.i("DEBUGGER_TAG", "Network is Enabled");
-                else
-                    Log.i("DEBUGGER_TAG", "Network is <<<<DISABLED>>>>");
-*/
-
                 if(!isThreadStarted){
+                    // Immediately send last known GPS location to seed the watchdog.
+                    // GPS cold start (acquiring satellites) can take 30-90 seconds, which is
+                    // longer than OpenCPN's 10-second watchdog. By sending the last known
+                    // location immediately, we keep the connection alive until a fresh fix arrives.
+                    try {
+                        Location lastKnown = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                        if (lastKnown != null && mNativeLib != null) {
+                            Log.i("OpenCPN", "GPS Service: seeding watchdog with last known location");
+                            mlastNMEAMillis = 0; // force RMC synthesis (deltaTime > 2000)
+                            onLocationChanged(lastKnown);
+                        } else {
+                            Log.i("OpenCPN", "GPS Service: no last known location available");
+                        }
+                    } catch (SecurityException e) {
+                        Log.w("OpenCPN", "GPS Service: SecurityException getting last known location: " + e.getMessage());
+                    }
 
                     Log.i("OpenCPN", "GPS Service doService : Start Thread");
 
