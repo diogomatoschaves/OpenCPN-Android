@@ -7,6 +7,7 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
+import android.content.pm.ServiceInfo;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -146,8 +147,13 @@ public class GPSServer extends Service implements LocationListener {
 
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    if (!isInBackground())
-                        startForeground(1, notification);
+                    if (!isInBackground()) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // API 34
+                            startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+                        } else {
+                            startForeground(1, notification);
+                        }
+                    }
                 } else {
                     startForeground(1, notification);
                 }
@@ -389,8 +395,13 @@ public class GPSServer extends Service implements LocationListener {
 
                                                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {    // 24
                                                     mNMEAMessageListener = new MyNMEAMessageListener();
-                                                    locationManager.addNmeaListener(mNMEAMessageListener);
-                                                    Log.i("OpenCPN", "GPS Service doService : adding new MyNMEAMessageListener");
+                                                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) { // 31
+                                                        locationManager.addNmeaListener(java.util.concurrent.Executors.newSingleThreadExecutor(), mNMEAMessageListener);
+                                                        Log.i("OpenCPN", "GPS Service doService : adding MyNMEAMessageListener with Executor");
+                                                    } else {
+                                                        locationManager.addNmeaListener(mNMEAMessageListener, reqHandler);
+                                                        Log.i("OpenCPN", "GPS Service doService : adding MyNMEAMessageListener with Handler");
+                                                    }
 
                                                 }
                                                 else {
