@@ -2477,7 +2477,19 @@ public class QtActivity extends AppCompatActivity  implements Receiver{
                 width, height,
                 dm.widthPixels, dm.heightPixels, actionBarHeight, tsize);
 
-        //Log.i("DEBUGGER_TAG", ret);
+        // Diagnostic: log display metrics, surface size, and insets
+        View contentView = findViewById(android.R.id.content);
+        Point realSize = new Point();
+        display.getRealSize(realSize);
+        Log.i("OpenCPN", "DisplayMetrics: SDK=" + Build.VERSION.SDK_INT
+                + " dm.hPx=" + dm.heightPixels + " dm.wPx=" + dm.widthPixels
+                + " realH=" + realSize.y + " realW=" + realSize.x
+                + " statusBarH=" + statusBarHeight + " navBarH=" + getNavBarHeight()
+                + " actionBarH=" + actionBarHeight + " fullScreen=" + m_fullScreen
+                + " contentView=" + contentView.getWidth() + "x" + contentView.getHeight()
+                + " padding=(" + contentView.getPaddingLeft() + "," + contentView.getPaddingTop()
+                + "," + contentView.getPaddingRight() + "," + contentView.getPaddingBottom() + ")"
+                + " ret=" + ret);
 
 
         return ret;
