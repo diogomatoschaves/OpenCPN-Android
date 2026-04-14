@@ -2404,9 +2404,6 @@ public class QtActivity extends AppCompatActivity  implements Receiver{
         androidx.appcompat.app.ActionBar actionBar = getSupportActionBar();
         if (actionBar.isShowing())
             actionBarHeight = actionBar.getHeight();
-        if (android.os.Build.VERSION.SDK_INT >= 35){
-            actionBarHeight += getNavBarHeight();
-        }
 
 
         // sensible defaults
@@ -7322,8 +7319,11 @@ public void onCreate(Bundle savedInstanceState) {
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content),
                         (v, windowInsets) -> {
                            Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
-                            // Apply the insets paddings to the view.
-                            v.setPadding(insets.left, insets.top, insets.right, insets.bottom);
+                            // Only reserve space below the status bar (top inset).
+                            // The chart extends to the bottom of the screen in true edge-to-edge
+                            // fashion; the navigation bar overlays the chart edge rather than
+                            // creating an empty strip below the chart.
+                            v.setPadding(0, insets.top, 0, 0);
 
                             // Return CONSUMED if you don't want the window insets to keep being
                             // passed down to descendant views.
