@@ -87,6 +87,7 @@ public class GPSServer extends Service implements LocationListener {
     private MyListener mMyListener;
     long mLastLocationMillis;
     long mlastNMEAMillis;
+    boolean mNMEAEverReceived = false;
     boolean isGPSFix = false;
     public int m_watchDog = 0;
     boolean isGPSStarted = false;
@@ -250,6 +251,7 @@ public class GPSServer extends Service implements LocationListener {
         public void onNmeaReceived(long timestamp, String nmea) {
 
             mlastNMEAMillis = SystemClock.elapsedRealtime();
+            mNMEAEverReceived = true;
 
             String filterNMEA = nmea;
             filterNMEA = filterNMEA.replaceAll("[^\\x0A\\x0D\\x20-\\x7E]", "");
@@ -276,6 +278,7 @@ public class GPSServer extends Service implements LocationListener {
             //Log.i("OpenCPN", "MyNMEAMessageListener: onNMEAMessage: "+ message );
 
             mlastNMEAMillis = SystemClock.elapsedRealtime();
+            mNMEAEverReceived = true;
 
             String filterNMEA = message;
             filterNMEA = filterNMEA.replaceAll("[^\\x0A\\x0D\\x20-\\x7E]", "");
@@ -422,6 +425,7 @@ public class GPSServer extends Service implements LocationListener {
                     // When real NMEA arrives, the NMEA listener updates mlastNMEAMillis,
                     // so silenceMs < 5000 and no synthetic position is sent.
                     mlastNMEAMillis = 0; // treat as silent immediately so first tick fires
+                    mNMEAEverReceived = false; // reset so ticker runs until first real NMEA
 
                     HandlerThread tickerThread = new HandlerThread("GPSKeepalive");
                     tickerThread.start();
@@ -432,17 +436,24 @@ public class GPSServer extends Service implements LocationListener {
                         public void run() {
                             if (!isThreadStarted) return; // GPS_OFF called; stop ticking
 
+                            // Once real NMEA has arrived, onLocationChanged handles any
+                            // subsequent signal-loss fallback — stop the startup ticker.
+                            if (mNMEAEverReceived) {
+                                Log.i("OpenCPN", "GPS startup ticker: real NMEA received, stopping");
+                                return;
+                            }
+
                             long silenceMs = SystemClock.elapsedRealtime() - mlastNMEAMillis;
                             if (silenceMs > 5000) {
-                                // NMEA has been silent — send synthetic position to prevent watchdog
+                                // NMEA not yet received — send synthetic position to prevent watchdog
                                 try {
                                     Location last = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
                                     if (last != null && mNativeLib != null) {
-                                        Log.i("OpenCPN", "GPS keepalive: synthetic GPRMC (NMEA silent " + silenceMs/1000 + "s)");
+                                        Log.i("OpenCPN", "GPS startup ticker: synthetic GPRMC (waiting for first fix, " + silenceMs/1000 + "s)");
                                         mNativeLib.processNMEAInt(createRMC(last));
                                     }
                                 } catch (SecurityException e) {
-                                    Log.w("OpenCPN", "GPS keepalive: " + e.getMessage());
+                                    Log.w("OpenCPN", "GPS startup ticker: " + e.getMessage());
                                 }
                             }
 
