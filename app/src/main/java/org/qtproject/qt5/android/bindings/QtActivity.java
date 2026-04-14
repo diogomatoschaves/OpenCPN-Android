@@ -2404,9 +2404,10 @@ public class QtActivity extends AppCompatActivity  implements Receiver{
         androidx.appcompat.app.ActionBar actionBar = getSupportActionBar();
         if (actionBar.isShowing())
             actionBarHeight = actionBar.getHeight();
-        if (android.os.Build.VERSION.SDK_INT >= 35){
-            actionBarHeight += getNavBarHeight();
-        }
+        // Note: do NOT add getNavBarHeight() here on SDK >= 35.
+        // setupEdgeToEdge() already applies nav bar height as bottom padding
+        // on the content view, so adding it to actionBarHeight double-counts
+        // it — shrinking the chart by navBarHeight pixels.
 
 
         // sensible defaults
