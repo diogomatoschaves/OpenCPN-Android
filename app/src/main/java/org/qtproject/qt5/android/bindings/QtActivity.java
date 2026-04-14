@@ -1555,32 +1555,14 @@ public class QtActivity extends AppCompatActivity  implements Receiver{
                 public void run() {
                     delegate.setFullScreen(bfull);
 
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) { // API 30
-                        WindowInsetsController controller = getWindow().getInsetsController();
-                        if (controller != null) {
-                            if (bfull) {
-                                // Only hide the status bar, not the navigation bar.
-                                // On Android 10+ gesture navigation, swiping from the bottom
-                                // triggers HOME rather than revealing transient bars, so hiding
-                                // the nav bar traps the user with no escape hatch.
-                                controller.hide(WindowInsets.Type.statusBars());
-                            } else {
-                                controller.show(WindowInsets.Type.statusBars());
-                            }
-                        }
-                    } else {
-                        if (bfull) {
-                            int flags = View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                                    | View.SYSTEM_UI_FLAG_FULLSCREEN
-                                    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
-                            getWindow().getDecorView().setSystemUiVisibility(flags);
-                        } else {
-                            getWindow().getDecorView().setSystemUiVisibility(0);
-                        }
+                    if (bfull) {
+                        int flags = View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                                | View.SYSTEM_UI_FLAG_FULLSCREEN
+                                | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
+                        getWindow().getDecorView().setSystemUiVisibility(flags);
                     }
-
                 }
             });
         }
@@ -8233,19 +8215,12 @@ public void onCreate(Bundle savedInstanceState) {
 
         if (hasFocus) {
             if (m_fullScreen) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) { // API 30
-                    WindowInsetsController controller = getWindow().getInsetsController();
-                    if (controller != null) {
-                        controller.hide(WindowInsets.Type.statusBars());
-                    }
-                } else {
-                    int flags = View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                            | View.SYSTEM_UI_FLAG_FULLSCREEN
-                            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
-                    getWindow().getDecorView().setSystemUiVisibility(flags);
-                }
+                int flags = View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
+                getWindow().getDecorView().setSystemUiVisibility(flags);
             }
             //           else{
             //               getWindow ().getDecorView().setSystemUiVisibility(0);
