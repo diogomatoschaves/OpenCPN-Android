@@ -1559,11 +1559,13 @@ public class QtActivity extends AppCompatActivity  implements Receiver{
                         WindowInsetsController controller = getWindow().getInsetsController();
                         if (controller != null) {
                             if (bfull) {
-                                controller.hide(WindowInsets.Type.systemBars());
-                                controller.setSystemBarsBehavior(
-                                        WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                                // Only hide the status bar, not the navigation bar.
+                                // On Android 10+ gesture navigation, swiping from the bottom
+                                // triggers HOME rather than revealing transient bars, so hiding
+                                // the nav bar traps the user with no escape hatch.
+                                controller.hide(WindowInsets.Type.statusBars());
                             } else {
-                                controller.show(WindowInsets.Type.systemBars());
+                                controller.show(WindowInsets.Type.statusBars());
                             }
                         }
                     } else {
@@ -8221,9 +8223,7 @@ public void onCreate(Bundle savedInstanceState) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) { // API 30
                     WindowInsetsController controller = getWindow().getInsetsController();
                     if (controller != null) {
-                        controller.hide(WindowInsets.Type.systemBars());
-                        controller.setSystemBarsBehavior(
-                                WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                        controller.hide(WindowInsets.Type.statusBars());
                     }
                 } else {
                     int flags = View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
