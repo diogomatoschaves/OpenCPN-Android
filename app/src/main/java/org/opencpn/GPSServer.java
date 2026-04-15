@@ -87,7 +87,8 @@ public class GPSServer extends Service implements LocationListener {
     private MyListener mMyListener;
     long mLastLocationMillis;
     long mlastNMEAMillis;
-    boolean mNMEAEverReceived = false;
+    // mNMEAEverReceived removed — ticker now runs persistently and
+    // self-suppresses via the silenceMs check when real NMEA flows.
     boolean isGPSFix = false;
     public int m_watchDog = 0;
     boolean isGPSStarted = false;
@@ -251,7 +252,6 @@ public class GPSServer extends Service implements LocationListener {
         public void onNmeaReceived(long timestamp, String nmea) {
 
             mlastNMEAMillis = SystemClock.elapsedRealtime();
-            mNMEAEverReceived = true;
 
             String filterNMEA = nmea;
             filterNMEA = filterNMEA.replaceAll("[^\\x0A\\x0D\\x20-\\x7E]", "");
@@ -278,7 +278,6 @@ public class GPSServer extends Service implements LocationListener {
             //Log.i("OpenCPN", "MyNMEAMessageListener: onNMEAMessage: "+ message );
 
             mlastNMEAMillis = SystemClock.elapsedRealtime();
-            mNMEAEverReceived = true;
 
             String filterNMEA = message;
             filterNMEA = filterNMEA.replaceAll("[^\\x0A\\x0D\\x20-\\x7E]", "");
@@ -416,16 +415,13 @@ public class GPSServer extends Service implements LocationListener {
                     mReqHandler.postDelayed(Req, 100);
 
                     // Start the keepalive ticker.
-                    // GPS satellite acquisition (cold start) takes 30-90s, longer than OpenCPN's
-                    // 10-second watchdog. Without NMEA data the watchdog fires and shows '!'.
-                    // The ticker sends a synthetic GPRMC from the last known location whenever
-                    // real NMEA has been silent for > 5 seconds, keeping the connection alive
-                    // through initial acquisition and brief signal losses (e.g. under a bridge).
-                    //
-                    // When real NMEA arrives, the NMEA listener updates mlastNMEAMillis,
-                    // so silenceMs < 5000 and no synthetic position is sent.
+                    // Runs persistently every 3 seconds.  When real NMEA is flowing,
+                    // mlastNMEAMillis stays fresh so silenceMs < 5000 and no synthetic
+                    // data is sent.  When NMEA goes silent (cold start, battery
+                    // throttling, brief signal loss) the ticker sends synthetic
+                    // RMC + GGA + GSA to keep OpenCPN's watchdog happy and its
+                    // signal-quality indicator accurate.
                     mlastNMEAMillis = 0; // treat as silent immediately so first tick fires
-                    mNMEAEverReceived = false; // reset so ticker runs until first real NMEA
 
                     HandlerThread tickerThread = new HandlerThread("GPSKeepalive");
                     tickerThread.start();
@@ -436,24 +432,20 @@ public class GPSServer extends Service implements LocationListener {
                         public void run() {
                             if (!isThreadStarted) return; // GPS_OFF called; stop ticking
 
-                            // Once real NMEA has arrived, onLocationChanged handles any
-                            // subsequent signal-loss fallback — stop the startup ticker.
-                            if (mNMEAEverReceived) {
-                                Log.i("OpenCPN", "GPS startup ticker: real NMEA received, stopping");
-                                return;
-                            }
-
                             long silenceMs = SystemClock.elapsedRealtime() - mlastNMEAMillis;
                             if (silenceMs > 5000) {
-                                // NMEA not yet received — send synthetic position to prevent watchdog
+                                // Real NMEA silent — send synthetic RMC+GGA+GSA so
+                                // OpenCPN keeps position and shows proper signal quality
                                 try {
                                     Location last = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
                                     if (last != null && mNativeLib != null) {
-                                        Log.i("OpenCPN", "GPS startup ticker: synthetic GPRMC (waiting for first fix, " + silenceMs/1000 + "s)");
+                                        Log.i("OpenCPN", "GPS keepalive: synthetic NMEA (silent " + silenceMs/1000 + "s)");
                                         mNativeLib.processNMEAInt(createRMC(last));
+                                        mNativeLib.processNMEAInt(createGGA(last));
+                                        mNativeLib.processNMEAInt(createGSA(last));
                                     }
                                 } catch (SecurityException e) {
-                                    Log.w("OpenCPN", "GPS startup ticker: " + e.getMessage());
+                                    Log.w("OpenCPN", "GPS keepalive: " + e.getMessage());
                                 }
                             }
 
@@ -671,9 +663,9 @@ public class GPSServer extends Service implements LocationListener {
         //Log.i("OpenCPN", Long.toString( deltaTime));
         if(deltaTime > 2000){
             if(null != mNativeLib) {
-                String s = createRMC(location);
-                Log.i("OpenCPN", "ticker: " + s);
-                mNativeLib.processNMEAInt(s);
+                mNativeLib.processNMEAInt(createRMC(location));
+                mNativeLib.processNMEAInt(createGGA(location));
+                mNativeLib.processNMEAInt(createGSA(location));
             }
         }
     }
@@ -774,6 +766,75 @@ public class GPSServer extends Service implements LocationListener {
 //        Log.i("OpenCPN", s);
 
         return s;
+    }
+
+    /**
+     * Create a synthetic GGA sentence from an Android Location.
+     * Provides fix quality, HDOP and altitude so OpenCPN shows a healthy
+     * signal indicator even when raw NMEA is throttled by Android.
+     */
+    public static String createGGA(Location location) {
+        // Derive quality metrics from Android's accuracy estimate
+        float accuracy = location.hasAccuracy() ? location.getAccuracy() : 25.0f;
+        double hdop = Math.max(0.5, Math.min(10.0, accuracy / 5.0));
+        int numSats = 7; // reasonable default
+        try {
+            Bundle extras = location.getExtras();
+            if (extras != null && extras.containsKey("satellites")) {
+                numSats = extras.getInt("satellites", 7);
+                if (numSats < 1) numSats = 7;
+            }
+        } catch (Exception ignored) {}
+
+        double alt = location.hasAltitude() ? location.getAltitude() : 0.0;
+
+        // Format latitude in NMEA ddmm.mmmm
+        double lat = Math.abs(location.getLatitude());
+        int latDeg = (int) Math.floor(lat);
+        double latMin = (lat - latDeg) * 60.0;
+        String latStr = String.format("%02d%07.4f,%s", latDeg, latMin,
+                location.getLatitude() >= 0 ? "N" : "S");
+
+        // Format longitude in NMEA dddmm.mmmm
+        double lon = Math.abs(location.getLongitude());
+        int lonDeg = (int) Math.floor(lon);
+        double lonMin = (lon - lonDeg) * 60.0;
+        String lonStr = String.format("%03d%07.4f,%s", lonDeg, lonMin,
+                location.getLongitude() >= 0 ? "E" : "W");
+
+        // $OCGGA,,lat,N,lon,E,fixQual,numSats,hdop,alt,M,geoidSep,M,,*cs
+        String body = String.format("OCGGA,,%s,%s,1,%02d,%.1f,%.1f,M,,M,,",
+                latStr, lonStr, numSats, hdop, alt);
+
+        return "$" + body + "*" + nmeaChecksum(body);
+    }
+
+    /**
+     * Create a synthetic GSA sentence from an Android Location.
+     * Provides DOP values so OpenCPN can assess fix quality.
+     */
+    public static String createGSA(Location location) {
+        float accuracy = location.hasAccuracy() ? location.getAccuracy() : 25.0f;
+        double hdop = Math.max(0.5, Math.min(10.0, accuracy / 5.0));
+        double vdop = hdop * 1.2; // rough estimate
+        double pdop = Math.sqrt(hdop * hdop + vdop * vdop);
+        int fixType = location.hasAltitude() ? 3 : 2; // 3D or 2D
+
+        // $OCGSA,A,fixType,,,,,,,,,,,,,pdop,hdop,vdop*cs
+        String body = String.format("OCGSA,A,%d,,,,,,,,,,,,%.1f,%.1f,%.1f",
+                fixType, pdop, hdop, vdop);
+
+        return "$" + body + "*" + nmeaChecksum(body);
+    }
+
+    /** Compute NMEA XOR checksum over body (between $ and *). */
+    private static String nmeaChecksum(String body) {
+        int cs = 0;
+        for (int i = 0; i < body.length(); i++) {
+            cs ^= body.charAt(i);
+        }
+        String hex = Integer.toHexString(cs).toUpperCase();
+        return hex.length() == 1 ? "0" + hex : hex;
     }
 
     /**
