@@ -7217,13 +7217,29 @@ public void onCreate(Bundle savedInstanceState) {
 
             }
 
-            // Extract bundled CM93 Mediterranean charts from assets/charts/
-            // This runs independently of b_needcopy — uses its own marker file
+            // Extract bundled CM93 world charts from assets/charts/
+            // Uses a versioned marker so chart updates are re-extracted on app update
             try {
                 String chartDestDir = m_filesDir + "/Charts/CM93";
-                File chartMarker = new File(chartDestDir, ".charts_extracted");
-                if (!chartMarker.exists()) {
-                    Log.i("OpenCPN", "Extracting bundled CM93 Mediterranean charts...");
+                // Bump this version whenever bundled chart data changes
+                int CHART_DATA_VERSION = 2;  // v1 = Med only, v2 = world A+B coverage
+                File chartMarker = new File(chartDestDir, ".charts_version");
+                int installedVersion = 0;
+                if (chartMarker.exists()) {
+                    try {
+                        String ver = new String(java.nio.file.Files.readAllBytes(chartMarker.toPath())).trim();
+                        installedVersion = Integer.parseInt(ver);
+                    } catch (Exception ignored) {}
+                }
+                // Also handle legacy marker from previous versions
+                File legacyMarker = new File(chartDestDir, ".charts_extracted");
+                if (legacyMarker.exists() && installedVersion == 0) {
+                    installedVersion = 1;
+                    legacyMarker.delete();
+                }
+                if (installedVersion < CHART_DATA_VERSION) {
+                    Log.i("OpenCPN", "Extracting bundled CM93 charts (v" + CHART_DATA_VERSION
+                            + ", installed v" + installedVersion + ")...");
                     AssetManager am = getAssets();
                     String[] chartAssets = am.list("charts/CM93");
                     if (chartAssets != null && chartAssets.length > 0) {
@@ -7231,16 +7247,18 @@ public void onCreate(Bundle savedInstanceState) {
                         for (String asset : chartAssets) {
                             Assetbridge.copyAssetItem(am, "charts/CM93/" + asset, chartDestDir + "/" + asset);
                         }
-                        chartMarker.createNewFile();
-                        Log.i("OpenCPN", "CM93 chart extraction complete: " + chartDestDir);
+                        java.nio.file.Files.write(chartMarker.toPath(),
+                                String.valueOf(CHART_DATA_VERSION).getBytes());
+                        installedVersion = CHART_DATA_VERSION;
+                        Log.i("OpenCPN", "CM93 chart extraction complete (v" + CHART_DATA_VERSION + "): " + chartDestDir);
                     }
                 } else {
-                    Log.i("OpenCPN", "CM93 charts already extracted, skipping");
+                    Log.i("OpenCPN", "CM93 charts up to date (v" + installedVersion + "), skipping");
                 }
 
                 // Auto-register chart directory in opencpn.conf
                 // Write directly to the native config file so charts load on first launch
-                if (chartMarker.exists()) {
+                if (installedVersion >= CHART_DATA_VERSION) {
                     String chartDir = m_filesDir + "/Charts/CM93";
                     File confFile = new File(m_filesDir, "opencpn.conf");
                     boolean needsChartDir = true;
